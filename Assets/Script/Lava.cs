@@ -1,4 +1,6 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
+using System.Collections;
 
 public class Lava : MonoBehaviour
 {
@@ -7,8 +9,12 @@ public class Lava : MonoBehaviour
     [SerializeField] private float hearingRadius = 30f;
     [SerializeField] private AudioClip lavaAudioClip;
     [SerializeField, Range(0f, 1f)] private float audioVolume = 1f;
+    [SerializeField] private AudioClip deathAudioClip;
+    [SerializeField, Range(0f, 1f)] private float deathAudioVolume = 1f;
 
     private AudioSource lavaAudioSource;
+    private AudioSource deathAudioSource;
+    private bool isReloading;
 
     private void Awake()
     {
@@ -23,6 +29,10 @@ public class Lava : MonoBehaviour
         lavaAudioSource.playOnAwake = false;
         lavaAudioSource.spatialBlend = 1f;
         lavaAudioSource.rolloffMode = AudioRolloffMode.Linear;
+
+        deathAudioSource = gameObject.AddComponent<AudioSource>();
+        deathAudioSource.playOnAwake = false;
+        deathAudioSource.spatialBlend = 0f;
     }
 
     private void Start()
@@ -66,9 +76,27 @@ public class Lava : MonoBehaviour
     private void OnTriggerEnter(Collider other)
     {
         PlayerMovement playerMovement = other.GetComponentInParent<PlayerMovement>();
-        if (playerMovement != null)
+        if (playerMovement == null || isReloading)
         {
-            playerMovement.ReturnToStart();
+            return;
         }
+
+        isReloading = true;
+        if (lavaAudioSource.isPlaying)
+        {
+            lavaAudioSource.Stop();
+        }
+        StartCoroutine(PlayDeathSoundAndReload());
+    }
+
+    private IEnumerator PlayDeathSoundAndReload()
+    {
+        if (deathAudioClip != null)
+        {
+            deathAudioSource.PlayOneShot(deathAudioClip, deathAudioVolume);
+            yield return new WaitForSecondsRealtime(deathAudioClip.length);
+        }
+
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 }
