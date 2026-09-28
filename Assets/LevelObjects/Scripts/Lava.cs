@@ -1,13 +1,16 @@
 using UnityEngine;
 
-public class Lava : MonoBehaviour
+namespace LevelObjects
 {
-    void OnTriggerEnter(Collider other)
+    public class Lava : MonoBehaviour
     {
-        //if the player touches the lava, send them back to where they started
-        PlayerMovement player = other.GetComponent<PlayerMovement>();
-        if (player != null) {
-            player.ReturnToStart();
+        private void OnTriggerEnter(Collider other)
+        {
+            PlayerMovement player = other.GetComponentInParent<PlayerMovement>();
+            if (player != null)
+            {
+                player.ReturnToStart();
+            }
         }
     }
 }
