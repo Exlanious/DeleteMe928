@@ -766,6 +766,8 @@ MonoBehaviour:
   hearingRadius: 30
   lavaAudioClip: {fileID: 8300000, guid: 88acf9517dab03242af9f05a933ddb16, type: 3}
   audioVolume: 1
+  deathAudioClip: {fileID: 8300000, guid: b361bd27ad65c954eaf858bb6a428942, type: 3}
+  deathAudioVolume: 1
 --- !u!23 &354604168
 MeshRenderer:
   m_ObjectHideFlags: 0
