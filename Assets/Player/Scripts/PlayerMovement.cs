@@ -25,6 +25,12 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private float dashCooldown = 0.4f; //seconds between dashes
     [SerializeField] private int airDashesMax = 1; //how many dashes you get each time you leave the ground
 
+    [Header("Action Audio")]
+    [SerializeField] private AudioClip dashAudioClip;
+    [SerializeField] private AudioClip jumpAudioClip;
+    [SerializeField] private AudioClip doubleJumpAudioClip;
+    [SerializeField, Range(0f, 1f)] private float actionAudioVolume = 1f;
+
     private const float GroundedVelocity = -2f; //small downward velocity while grounded so the player doesn't hover
     private float jumpHeldTimer;
     private float jumpPreloadTimer;
@@ -43,6 +49,7 @@ public class PlayerMovement : MonoBehaviour
     private CharacterController controller;
     private Controls controls;
     private PlayerCameraControl cameraControl;
+    private AudioSource actionAudioSource;
     private Vector3 startPosition;
     private Quaternion startRotation;
 
@@ -57,6 +64,13 @@ public class PlayerMovement : MonoBehaviour
         controller = GetComponent<CharacterController>();
         controls = GetComponent<Controls>();
         cameraControl = GetComponent<PlayerCameraControl>();
+        actionAudioSource = GetComponent<AudioSource>();
+        if (actionAudioSource == null)
+        {
+            actionAudioSource = gameObject.AddComponent<AudioSource>();
+        }
+        actionAudioSource.playOnAwake = false;
+        actionAudioSource.spatialBlend = 0f;
 
         //remember where the player started so they can be sent back there
         startPosition = transform.position;
@@ -109,10 +123,10 @@ public class PlayerMovement : MonoBehaviour
         if (controls.JumpTriggered()) //if jump button is pressed
         {
             if (isGrounded) { //regular jump
-                BeginJump(jumpStartingVelocity);
+                BeginJump(jumpStartingVelocity, jumpAudioClip);
             }
             else if (coyoteTimer > 0) { //coyote time jump
-                BeginJump(jumpStartingVelocity);
+                BeginJump(jumpStartingVelocity, jumpAudioClip);
             }
             else if (canAirJump && airJumpsRemaining > 0) { //air jump
                 BeginAirJump();
@@ -228,6 +242,7 @@ public class PlayerMovement : MonoBehaviour
         if (!isGrounded) {
             airDashesRemaining--;
         }
+        PlayActionSound(dashAudioClip);
     }
 
     /// <summary>
@@ -253,7 +268,7 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    void BeginJump(float startVelocity)
+    void BeginJump(float startVelocity, AudioClip audioClip)
     {
         //if you can't jump, don't do anything
         if (!canJump) {
@@ -271,6 +286,7 @@ public class PlayerMovement : MonoBehaviour
         coyoteTimer = 0;
         jumpPreloadTimer = 0;
         jumping = true;
+        PlayActionSound(audioClip);
     }
     
     /// <summary>
@@ -282,7 +298,15 @@ public class PlayerMovement : MonoBehaviour
             return;
         }
         airJumpsRemaining--;
-        BeginJump(airJumpVelocity);
+        BeginJump(airJumpVelocity, doubleJumpAudioClip);
+    }
+
+    void PlayActionSound(AudioClip audioClip)
+    {
+        if (audioClip != null)
+        {
+            actionAudioSource.PlayOneShot(audioClip, actionAudioVolume);
+        }
     }
 
     void EndJump(){
@@ -302,7 +326,7 @@ public class PlayerMovement : MonoBehaviour
         RefillAirDashes();
         //if I just landed on the platform right after pressing the jump button, let me jump
         if (jumpPreloadTimer > 0) {
-            BeginJump(jumpStartingVelocity);
+            BeginJump(jumpStartingVelocity, jumpAudioClip);
         }
     }
 

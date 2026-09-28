@@ -2662,6 +2662,12 @@ MonoBehaviour:
   horizontalSpawnRange: 2
   spawnAheadDistance: 12.5
   maxSpawnedPlatforms: 50
+  levelBoundsCenter: {x: 9.5, y: 29}
+  levelBoundsSize: {x: 26, y: 60}
+  wallBaseHeight: 0
+  wallTopPadding: 2
+  wallThickness: 1
+  wallMaterial: {fileID: 2100000, guid: b83994ac710154e718e9b760262939e7, type: 2}
 --- !u!1001 &1390623875
 PrefabInstance:
   m_ObjectHideFlags: 0

@@ -11,8 +11,15 @@ public class PlatformManager : MonoBehaviour
     [SerializeField] private float horizontalSpawnRange = 2f;
     [SerializeField] private float spawnAheadDistance = 12.5f;
     [SerializeField] private int maxSpawnedPlatforms = 50;
+    [SerializeField] private Vector2 levelBoundsCenter = new Vector2(9.5f, 29f);
+    [SerializeField] private Vector2 levelBoundsSize = new Vector2(26f, 60f);
+    [SerializeField] private float wallBaseHeight;
+    [SerializeField] private float wallTopPadding = 2f;
+    [SerializeField] private float wallThickness = 1f;
+    [SerializeField] private Material wallMaterial;
 
     private readonly Queue<GameObject> spawnedPlatforms = new Queue<GameObject>();
+    private readonly GameObject[] boundaryWalls = new GameObject[4];
     private float nextPlatformHeight;
     private Vector3 lastPlatformPosition;
 
@@ -45,6 +52,9 @@ public class PlatformManager : MonoBehaviour
                 lastPlatformPosition = existingPlatform.position;
             }
         }
+
+        CreateBoundaryWalls();
+        UpdateBoundaryWalls(nextPlatformHeight + wallTopPadding);
         SpawnPlatformsAhead();
     }
 
@@ -66,10 +76,14 @@ public class PlatformManager : MonoBehaviour
 
     private void SpawnPlatform(float height)
     {
+        float halfPlatformWidth = Mathf.Max(0f, levelBoundsSize.x * 0.5f - platformDimensions.x * 0.5f);
+        float halfPlatformDepth = Mathf.Max(0f, levelBoundsSize.y * 0.5f - platformDimensions.y * 0.5f);
         Vector3 position = new Vector3(
-            lastPlatformPosition.x + Random.Range(-horizontalSpawnRange, horizontalSpawnRange),
+            Mathf.Clamp(lastPlatformPosition.x + Random.Range(-horizontalSpawnRange, horizontalSpawnRange),
+                levelBoundsCenter.x - halfPlatformWidth, levelBoundsCenter.x + halfPlatformWidth),
             height,
-            lastPlatformPosition.z + Random.Range(-horizontalSpawnRange, horizontalSpawnRange));
+            Mathf.Clamp(lastPlatformPosition.z + Random.Range(-horizontalSpawnRange, horizontalSpawnRange),
+                levelBoundsCenter.y - halfPlatformDepth, levelBoundsCenter.y + halfPlatformDepth));
 
         GameObject platform;
         if (platformPrefab != null)
@@ -86,6 +100,7 @@ public class PlatformManager : MonoBehaviour
 
         platform.name = "Generated Platform";
         lastPlatformPosition = position;
+        UpdateBoundaryWalls(height + wallTopPadding);
         Renderer platformRenderer = platform.GetComponentInChildren<Renderer>();
         if (platformRenderer != null && platformMaterial != null)
         {
@@ -97,5 +112,46 @@ public class PlatformManager : MonoBehaviour
         {
             Destroy(spawnedPlatforms.Dequeue());
         }
+    }
+
+    private void CreateBoundaryWalls()
+    {
+        for (int index = 0; index < boundaryWalls.Length; index++)
+        {
+            boundaryWalls[index] = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            boundaryWalls[index].name = "Level Boundary Wall";
+            boundaryWalls[index].transform.SetParent(transform, true);
+
+            Renderer wallRenderer = boundaryWalls[index].GetComponent<Renderer>();
+            Material material = wallMaterial != null ? wallMaterial : platformMaterial;
+            if (wallRenderer != null && material != null)
+            {
+                wallRenderer.sharedMaterial = material;
+            }
+        }
+    }
+
+    private void UpdateBoundaryWalls(float topHeight)
+    {
+        float thickness = Mathf.Max(0.1f, wallThickness);
+        float height = Mathf.Max(1f, topHeight - wallBaseHeight);
+        float centerHeight = wallBaseHeight + height * 0.5f;
+        float halfWidth = Mathf.Max(0.1f, levelBoundsSize.x * 0.5f);
+        float halfDepth = Mathf.Max(0.1f, levelBoundsSize.y * 0.5f);
+
+        SetBoundaryWall(0, new Vector3(levelBoundsCenter.x - halfWidth - thickness * 0.5f, centerHeight, levelBoundsCenter.y),
+            new Vector3(thickness, height, levelBoundsSize.y + thickness * 2f));
+        SetBoundaryWall(1, new Vector3(levelBoundsCenter.x + halfWidth + thickness * 0.5f, centerHeight, levelBoundsCenter.y),
+            new Vector3(thickness, height, levelBoundsSize.y + thickness * 2f));
+        SetBoundaryWall(2, new Vector3(levelBoundsCenter.x, centerHeight, levelBoundsCenter.y - halfDepth - thickness * 0.5f),
+            new Vector3(levelBoundsSize.x, height, thickness));
+        SetBoundaryWall(3, new Vector3(levelBoundsCenter.x, centerHeight, levelBoundsCenter.y + halfDepth + thickness * 0.5f),
+            new Vector3(levelBoundsSize.x, height, thickness));
+    }
+
+    private void SetBoundaryWall(int index, Vector3 position, Vector3 scale)
+    {
+        boundaryWalls[index].transform.position = position;
+        boundaryWalls[index].transform.localScale = scale;
     }
 }

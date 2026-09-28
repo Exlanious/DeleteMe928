@@ -63,6 +63,10 @@ MonoBehaviour:
   jumpableMask:
     serializedVersion: 2
     m_Bits: 4294967295
+  dashAudioClip: {fileID: 8300000, guid: 86d725638b2a6814bbabda99ad8140ab, type: 3}
+  jumpAudioClip: {fileID: 8300000, guid: 963abb4cc17da5849ab94eeff5f9f454, type: 3}
+  doubleJumpAudioClip: {fileID: 8300000, guid: 3c91eb4d45f734540a40aa772b33b237, type: 3}
+  actionAudioVolume: 1
 --- !u!114 &785873971517624810
 MonoBehaviour:
   m_ObjectHideFlags: 0
