@@ -12,6 +12,8 @@ public class PlayerCameraControl : MonoBehaviour
     private float inputY;
     private Controls controls;
 
+    public Transform CameraHolder => cameraHolder; //lets other scripts read the direction the camera is looking
+
     void Start()
     {
         //lock mouse and disable cursor
