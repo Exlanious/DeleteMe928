@@ -758,9 +758,14 @@ MonoBehaviour:
   m_GameObject: {fileID: 354604165}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ab1c14a50528847bba089562eaed484c, type: 3}
+  m_Script: {fileID: 11500000, guid: 43a440c9b27af8e498c2e8378c284d55, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Lava
+  riseSpeed: 0.5
+  player: {fileID: 0}
+  hearingRadius: 30
+  lavaAudioClip: {fileID: 8300000, guid: 88acf9517dab03242af9f05a933ddb16, type: 3}
+  audioVolume: 1
 --- !u!23 &354604168
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -2592,6 +2597,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1388114534}
+  - component: {fileID: 912083762}
   m_Layer: 0
   m_Name: Platforms
   m_TagString: Untagged
@@ -2634,6 +2640,26 @@ Transform:
   - {fileID: 1658111382}
   m_Father: {fileID: 296162992}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &912083762
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1388114533}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b86b52215a8faf54c861f7d47181f294, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::PlatformManager
+  player: {fileID: 0}
+  platformPrefab: {fileID: 0}
+  platformMaterial: {fileID: 2100000, guid: b83994ac710154e718e9b760262939e7, type: 2}
+  platformDimensions: {x: 2.5, y: 2.5}
+  verticalSpacing: 2.5
+  horizontalSpawnRange: 2
+  spawnAheadDistance: 12.5
+  maxSpawnedPlatforms: 50
 --- !u!1001 &1390623875
 PrefabInstance:
   m_ObjectHideFlags: 0
