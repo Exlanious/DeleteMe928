@@ -33,10 +33,10 @@ public class PlayerCameraControl : MonoBehaviour
         //get inputY based on mouse or right stick movement
         inputY = controls.LookMouseInput().y * mouseSensitivity;
         inputY += controls.LookStickInput().y * stickSensitivity * Time.deltaTime;
-        
+
         //rotate the entire player left and right based on inputX
         transform.Rotate(Vector3.up * inputX, Space.World);
-        
+
         //rotate the camera up and down based on inputY, clamped to 90 degrees up and down
         rotationX -= inputY; //invert the inputY so that moving the mouse up looks up and moving the mouse down looks down
         rotationX = Mathf.Clamp(rotationX, -90f, 90f); //clamp the rotationX to 90 degrees up and down
