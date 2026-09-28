@@ -46,6 +46,9 @@ public class PlayerMovement : MonoBehaviour
     private Vector3 startPosition;
     private Quaternion startRotation;
 
+    public Vector3 DashVelocity => velocityDash; //current dash velocity (zero when not dashing)
+    public float DashStartSpeed => dashSpeed; //how fast a dash starts, useful for effects that scale with the dash
+
 
 
     void Start()
