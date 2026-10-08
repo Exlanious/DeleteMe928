@@ -5,12 +5,31 @@ public class LavaEmbers : MonoBehaviour
 {
     [SerializeField] Material emberMaterial;
 
+    [Header("Adjust")]
+    [Tooltip("Emission rate. 1 matches the current density.")]
+    [SerializeField, Min(0f)] float density = 1f;
+    [Tooltip("Particle size. 1 matches the current size.")]
+    [SerializeField, Min(0f)] float size = 1f;
+    [Tooltip("HDR color multiplier. 1 matches the current brightness.")]
+    [SerializeField, Min(0f)] float brightness = 1f;
+    [Tooltip("How high particles rise. 1 matches the current height.")]
+    [SerializeField, Min(0f)] float popHeight = 1f;
+
     Material runtimeMaterial;
 
     void Awake()
     {
         FitAboveLava();
         runtimeMaterial = CreateRuntimeMaterial();
+        Build("Embers", true);
+        Build("Sparks", false);
+    }
+
+    void OnValidate()
+    {
+        if (!Application.isPlaying || runtimeMaterial == null)
+            return;
+
         Build("Embers", true);
         Build("Sparks", false);
     }
@@ -64,21 +83,21 @@ public class LavaEmbers : MonoBehaviour
         ParticleSystem.MainModule main = particles.main;
         main.startLifetime = new ParticleSystem.MinMaxCurve(1.6f, 2.8f);
         main.startSpeed = 0f;
-        main.startSize = new ParticleSystem.MinMaxCurve(0.14f, 0.42f);
+        main.startSize = new ParticleSystem.MinMaxCurve(0.14f * size, 0.42f * size);
         main.startColor = new ParticleSystem.MinMaxGradient(
-            new Color(1.8f, 0.28f, 0.02f, 1f),
-            new Color(3.2f, 1.05f, 0.2f, 1f));
+            ScaleBrightness(new Color(1.8f, 0.28f, 0.02f, 1f)),
+            ScaleBrightness(new Color(3.2f, 1.05f, 0.2f, 1f)));
         main.gravityModifier = 0.18f;
-        main.maxParticles = 400;
+        main.maxParticles = ScaledCount(400);
 
         ParticleSystem.EmissionModule emission = particles.emission;
-        emission.rateOverTime = 100f;
+        emission.rateOverTime = 100f * density;
 
         ParticleSystem.VelocityOverLifetimeModule velocity = particles.velocityOverLifetime;
         velocity.enabled = true;
         velocity.space = ParticleSystemSimulationSpace.World;
         velocity.x = new ParticleSystem.MinMaxCurve(0.05f, 0.45f);
-        velocity.y = new ParticleSystem.MinMaxCurve(0.55f, 1.5f);
+        velocity.y = new ParticleSystem.MinMaxCurve(0.55f * PopScale, 1.5f * PopScale);
         velocity.z = new ParticleSystem.MinMaxCurve(-0.2f, 0.2f);
 
         ParticleSystem.ColorOverLifetimeModule colorOverLifetime = particles.colorOverLifetime;
@@ -111,21 +130,21 @@ public class LavaEmbers : MonoBehaviour
         ParticleSystem.MainModule main = particles.main;
         main.startLifetime = new ParticleSystem.MinMaxCurve(0.45f, 0.95f);
         main.startSpeed = 0f;
-        main.startSize = new ParticleSystem.MinMaxCurve(0.06f, 0.16f);
+        main.startSize = new ParticleSystem.MinMaxCurve(0.06f * size, 0.16f * size);
         main.startColor = new ParticleSystem.MinMaxGradient(
-            new Color(3.2f, 0.55f, 0.05f, 1f),
-            new Color(5f, 2.1f, 0.45f, 1f));
+            ScaleBrightness(new Color(3.2f, 0.55f, 0.05f, 1f)),
+            ScaleBrightness(new Color(5f, 2.1f, 0.45f, 1f)));
         main.gravityModifier = 1.15f;
-        main.maxParticles = 60;
+        main.maxParticles = ScaledCount(60);
 
         ParticleSystem.EmissionModule emission = particles.emission;
-        emission.rateOverTime = 14f;
+        emission.rateOverTime = 14f * density;
 
         ParticleSystem.VelocityOverLifetimeModule velocity = particles.velocityOverLifetime;
         velocity.enabled = true;
         velocity.space = ParticleSystemSimulationSpace.World;
         velocity.x = new ParticleSystem.MinMaxCurve(-0.3f, 0.9f);
-        velocity.y = new ParticleSystem.MinMaxCurve(2.4f, 4.6f);
+        velocity.y = new ParticleSystem.MinMaxCurve(2.4f * PopScale, 4.6f * PopScale);
         velocity.z = new ParticleSystem.MinMaxCurve(-0.45f, 0.45f);
 
         ParticleSystem.ColorOverLifetimeModule colorOverLifetime = particles.colorOverLifetime;
@@ -179,6 +198,19 @@ public class LavaEmbers : MonoBehaviour
         Material material = new Material(source);
         material.name = "Lava Ember Runtime";
         return material;
+    }
+
+    // Height grows with the square of upward speed, so scale speed by the square root.
+    float PopScale => Mathf.Sqrt(popHeight);
+
+    int ScaledCount(int baseCount)
+    {
+        return Mathf.Max(1, Mathf.RoundToInt(baseCount * density));
+    }
+
+    Color ScaleBrightness(Color color)
+    {
+        return new Color(color.r * brightness, color.g * brightness, color.b * brightness, color.a);
     }
 
     static ParticleSystem.MinMaxGradient EmberFade()
