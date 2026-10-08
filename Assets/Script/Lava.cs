@@ -1,6 +1,4 @@
 using UnityEngine;
-using UnityEngine.SceneManagement;
-using System.Collections;
 
 public class Lava : MonoBehaviour
 {
@@ -18,7 +16,9 @@ public class Lava : MonoBehaviour
     private AudioSource lavaAudioSource;
     private AudioSource deathAudioSource;
     private Collider lavaCollider;
-    private bool isReloading;
+    private bool isDead;
+    private PlayerMovement playerMovement;
+    private GameSession session;
 
     private void Awake()
     {
@@ -44,15 +44,36 @@ public class Lava : MonoBehaviour
     {
         if (player == null)
         {
-            PlayerMovement playerMovement = FindAnyObjectByType<PlayerMovement>();
+            playerMovement = FindAnyObjectByType<PlayerMovement>();
             if (playerMovement != null)
             {
                 player = playerMovement.transform;
             }
         }
+        if (player != null)
+        {
+            playerMovement = player.GetComponent<PlayerMovement>();
+            session = player.GetComponent<GameSession>();
+        }
     }
 
     private void Update()
+    {
+        bool running = !isDead && (session != null ? session.IsPlaying : playerMovement != null && playerMovement.HasMovedThisRun);
+        if (running) Rise();
+        UpdateAudio(running);
+        if (running && player != null && lavaCollider != null)
+        {
+            CharacterController controller = player.GetComponent<CharacterController>();
+            Bounds bounds = lavaCollider.bounds;
+            float feetHeight = controller != null ? controller.bounds.min.y : player.position.y;
+            bool inside = player.position.x >= bounds.min.x && player.position.x <= bounds.max.x
+                && player.position.z >= bounds.min.z && player.position.z <= bounds.max.z;
+            if (inside && feetHeight <= bounds.max.y) KillPlayer(playerMovement);
+        }
+    }
+
+    private void Rise()
     {
         Vector3 position = transform.position;
         if (player != null)
@@ -67,10 +88,13 @@ public class Lava : MonoBehaviour
         float currentRiseSpeed = Mathf.Min(maximumRiseSpeed, riseSpeed + catchUpSpeed);
         position.y += currentRiseSpeed * Time.deltaTime;
         transform.position = position;
+    }
 
+    private void UpdateAudio(bool running)
+    {
         lavaAudioSource.maxDistance = hearingRadius;
         lavaAudioSource.volume = audioVolume;
-        if (player == null || lavaAudioClip == null || hearingRadius <= 0f)
+        if (!running || player == null || lavaAudioClip == null || hearingRadius <= 0f)
         {
             if (lavaAudioSource.isPlaying)
             {
@@ -92,28 +116,31 @@ public class Lava : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        PlayerMovement playerMovement = other.GetComponentInParent<PlayerMovement>();
-        if (playerMovement == null || isReloading)
+        KillPlayer(other.GetComponentInParent<PlayerMovement>());
+    }
+
+    private void OnTriggerStay(Collider other)
+    {
+        KillPlayer(other.GetComponentInParent<PlayerMovement>());
+    }
+
+    private void KillPlayer(PlayerMovement victim)
+    {
+        if (victim == null || isDead || (session != null && !session.IsPlaying))
         {
             return;
         }
 
-        isReloading = true;
+        isDead = true;
         if (lavaAudioSource.isPlaying)
         {
             lavaAudioSource.Stop();
         }
-        StartCoroutine(PlayDeathSoundAndReload());
-    }
-
-    private IEnumerator PlayDeathSoundAndReload()
-    {
         if (deathAudioClip != null)
         {
             deathAudioSource.PlayOneShot(deathAudioClip, deathAudioVolume);
-            yield return new WaitForSecondsRealtime(deathAudioClip.length);
         }
-
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        if (session != null) session.EndRun();
+        else victim.ReturnToStart();
     }
 }

@@ -11,14 +11,16 @@ public class PlayerCameraControl : MonoBehaviour
     private float inputX;
     private float inputY;
     private Controls controls;
+    private GameSession session;
 
     public Transform CameraHolder => cameraHolder; //lets other scripts read the direction the camera is looking
 
     void Start()
     {
         //lock mouse and disable cursor
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        session = GetComponent<GameSession>();
+        Cursor.lockState = session == null || session.CanMove ? CursorLockMode.Locked : CursorLockMode.None;
+        Cursor.visible = session != null && !session.CanMove;
 
         //get the controls component
         controls = GetComponent<Controls>();
@@ -26,6 +28,7 @@ public class PlayerCameraControl : MonoBehaviour
 
     void Update()
     {
+        if (session != null && !session.CanMove) return;
         //get inputX based on mouse or right stick movement
         inputX = controls.LookMouseInput().x * mouseSensitivity;
         inputX += controls.LookStickInput().x * stickSensitivity * Time.deltaTime;

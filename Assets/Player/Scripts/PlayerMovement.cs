@@ -52,6 +52,8 @@ public class PlayerMovement : MonoBehaviour
     private AudioSource actionAudioSource;
     private Vector3 startPosition;
     private Quaternion startRotation;
+    private GameSession session;
+    public bool HasMovedThisRun { get; private set; }
 
     public Vector3 DashVelocity => velocityDash; //current dash velocity (zero when not dashing)
     public float DashStartSpeed => dashSpeed; //how fast a dash starts, useful for effects that scale with the dash
@@ -60,6 +62,18 @@ public class PlayerMovement : MonoBehaviour
     public int AirDashesRemaining => airDashesRemaining;
     public bool IsGrounded => isGrounded;
     public Vector3 MomentumVelocity => velocity;
+    public float MaximumDoubleJumpRise
+    {
+        get
+        {
+            if (!canJump) return 0f;
+            float pull = Mathf.Max(0.01f, gravity);
+            float rise = jumpStartingVelocity * jumpHeldTimerMax + jumpStartingVelocity * jumpStartingVelocity / (2f * pull);
+            if (canAirJump && airJumpsMax > 0)
+                rise += airJumpVelocity * jumpHeldTimerMax + airJumpVelocity * airJumpVelocity / (2f * pull);
+            return rise;
+        }
+    }
 
     public Vector3 PredictMomentumPosition(float seconds)
     {
@@ -95,6 +109,8 @@ public class PlayerMovement : MonoBehaviour
         controller = GetComponent<CharacterController>();
         controls = GetComponent<Controls>();
         cameraControl = GetComponent<PlayerCameraControl>();
+        session = GetComponent<GameSession>();
+        HasMovedThisRun = false;
         actionAudioSource = GetComponent<AudioSource>();
         if (actionAudioSource == null)
         {
@@ -146,10 +162,23 @@ public class PlayerMovement : MonoBehaviour
         dashCooldownTimer = 0;
         RefillAirJumps();
         RefillAirDashes();
+        StopMotion();
+        HasMovedThisRun = false;
+    }
+
+    public void StopMotion()
+    {
+        velocity = Vector3.zero;
+        velocityInput = Vector3.zero;
+        velocityPhysics = Vector3.zero;
+        velocityDash = Vector3.zero;
+        jumping = false;
+        dashing = false;
     }
 
     void Update()
     {
+        if (session != null && !session.CanMove) return;
         //
         if (controls.JumpTriggered()) //if jump button is pressed
         {
@@ -179,6 +208,7 @@ public class PlayerMovement : MonoBehaviour
     
     void FixedUpdate()
     {
+        if (session != null && !session.CanMove) return;
         // --isGrounded logic--
         isGrounded = RaycastTouchesGround();
         if (isGrounded && !wasGroundedLastFrame) {
@@ -219,11 +249,20 @@ public class PlayerMovement : MonoBehaviour
 
         velocity = velocityInput + velocityPhysics + velocityDash; //combine input, physics, and dash velocity
 
+        Vector3 beforeMove = transform.position;
+        bool intentionalMove = moveInput.sqrMagnitude > 0.01f || jumping || dashing || velocityDash.sqrMagnitude > 0.01f;
         CollisionFlags collisions = controller.Move(velocity * Time.fixedDeltaTime); //move the player based on the combined velocity
+        if (intentionalMove && (transform.position - beforeMove).sqrMagnitude > 0.000001f)
+        {
+            HasMovedThisRun = true;
+            if (session != null) session.NotifyPlayerMoved();
+        }
 
         //if a dash hits the ceiling, stop moving upward so the player doesn't stick to it
-        if ((collisions & CollisionFlags.Above) != 0 && velocityDash.y > 0) {
-            velocityDash.y = 0;
+        if ((collisions & CollisionFlags.Above) != 0) {
+            if (velocityDash.y > 0) velocityDash.y = 0;
+            if (velocityPhysics.y > 0) velocityPhysics.y = 0;
+            if (jumping) EndJump();
         }
     }
 
@@ -420,11 +459,6 @@ public class PlayerMovement : MonoBehaviour
             return true;
         }
         
-        //call leave ground results if we were grounded and now we're not
-        if (isGrounded) { 
-            GroundExit();
-        }
-
         //if we are not touching the ground, return false
         return false;
     }

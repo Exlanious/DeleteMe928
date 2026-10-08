@@ -18,6 +18,7 @@ GameObject:
   - component: {fileID: 4417203958106725331}
   - component: {fileID: 7039472011948023456}
   - component: {fileID: 812349056712304987}
+  - component: {fileID: 1246219316197426038}
   m_Layer: 0
   m_Name: FirstPersonController
   m_TagString: Untagged
@@ -52,7 +53,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 261841e1efa3f4946a82006aa0f1255c, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: '::'
   canJump: 0
   moveSpeed: 5
@@ -65,6 +66,15 @@ MonoBehaviour:
   jumpableMask:
     serializedVersion: 2
     m_Bits: 4294967295
+  canAirJump: 1
+  airJumpsMax: 1
+  airJumpVelocity: 6
+  canDash: 1
+  dashSpeed: 25
+  dashDeceleration: 60
+  dashGravityResumeSpeed: 5
+  dashCooldown: 0.4
+  airDashesMax: 1
   dashAudioClip: {fileID: 8300000, guid: 86d725638b2a6814bbabda99ad8140ab, type: 3}
   jumpAudioClip: {fileID: 8300000, guid: 963abb4cc17da5849ab94eeff5f9f454, type: 3}
   doubleJumpAudioClip: {fileID: 8300000, guid: 3c91eb4d45f734540a40aa772b33b237, type: 3}
@@ -79,7 +89,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: db5020ea36d7a41c4974fee17f081eca, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: '::'
   cameraHolder: {fileID: 9009409460688771036}
   mouseSensitivity: 0.2
@@ -94,7 +104,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 49aa428cf8f364f898ba861aa96c9b6b, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: '::'
 --- !u!143 &2010144662447915982
 CharacterController:
@@ -154,7 +164,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 62899f850307741f2a39c98a8b639597, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Unity.InputSystem::UnityEngine.InputSystem.PlayerInput
   m_Actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_NotificationBehavior: 0
@@ -170,8 +180,8 @@ MonoBehaviour:
       m_Calls: []
   m_ActionEvents: []
   m_NeverAutoSwitchControlSchemes: 0
-  m_DefaultControlScheme: 
-  m_DefaultActionMap: 
+  m_DefaultControlScheme:
+  m_DefaultActionMap:
   m_SplitScreenIndex: -1
   m_Camera: {fileID: 0}
 --- !u!114 &4417203958106725331
@@ -186,6 +196,57 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 138eada4d8344a73bef5b62498a19384, type: 3}
   m_Name:
   m_EditorClassIdentifier: '::'
+  lineColor: {r: 1, g: 1, b: 1, a: 0.6}
+  maxEmissionRate: 250
+  lineSpeed: 60
+  lineWidth: 0.03
+  lineStretch: 0.04
+  spawnDistance: 12
+  spawnRadius: 2.5
+  ringThickness: 0.5
+  minIntensity: 0.05
+  lineMaterial: {fileID: 0}
+--- !u!114 &7039472011948023456
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1821278238164118434}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e6a7c9d13f5840b18d2f0465cbd397a1, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerHUD
+--- !u!114 &812349056712304987
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1821278238164118434}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 128f94e12a0d4c75a126dcbe43e41a6c, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::MomentumIndicator
+  predictionTime: 0.45
+  minimumMomentum: 1
+  opacity: 0.6
+  indicatorTint: {r: 0.2, g: 0.9, b: 1, a: 1}
+--- !u!114 &1246219316197426038
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1821278238164118434}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6a22515cee9ffea42a2bac018415e3cc, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::HeightScore
+  pointsPerUnit: 1
 --- !u!1 &6301407549403393434
 GameObject:
   m_ObjectHideFlags: 0
@@ -379,7 +440,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalCameraData
   m_RenderShadows: 1
   m_RequiresDepthTextureOption: 2
@@ -445,31 +506,3 @@ Transform:
   - {fileID: 5357103715847353554}
   m_Father: {fileID: 9064379890283265927}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &7039472011948023456
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1821278238164118434}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e6a7c9d13f5840b18d2f0465cbd397a1, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::PlayerHUD
---- !u!114 &812349056712304987
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1821278238164118434}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 128f94e12a0d4c75a126dcbe43e41a6c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::MomentumIndicator
-  predictionTime: 0.45
-  minimumMomentum: 1
-  opacity: 0.6
-  indicatorTint: {r: 0.2, g: 0.9, b: 1, a: 1}

@@ -9,7 +9,9 @@ namespace LevelObjects
             PlayerMovement player = other.GetComponentInParent<PlayerMovement>();
             if (player != null)
             {
-                player.ReturnToStart();
+                GameSession session = player.GetComponent<GameSession>();
+                if (session != null) session.EndRun();
+                else player.ReturnToStart();
             }
         }
     }

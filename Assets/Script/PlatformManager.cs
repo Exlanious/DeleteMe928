@@ -4,7 +4,7 @@ using System.Collections.Generic;
 /// <summary>
 /// Generates an endless path of platforms that climbs upward. Every new platform is placed so it can be
 /// reached from the previous one with either a double jump (short gap, big rise) or a dash (long gap, small rise),
-/// with alternate routes between each pair of main platforms, following the inside of the boundary walls.
+/// with alternate routes between each pair of main platforms, staying within the horizontal generation area.
 /// </summary>
 public class PlatformManager : MonoBehaviour
 {
@@ -44,22 +44,16 @@ public class PlatformManager : MonoBehaviour
     [SerializeField] private float minClearance = 2f; //minimum horizontal space between platforms at similar heights
     [SerializeField] private int placementAttempts = 16;
 
-    [Header("Level Bounds")]
+    [Header("Horizontal Generation Bounds")]
     [SerializeField] private Vector2 levelBoundsCenter = new Vector2(9.5f, 29f);
     [SerializeField] private Vector2 levelBoundsSize = new Vector2(26f, 60f);
-    [SerializeField] private float wallBaseHeight;
-    [SerializeField] private float wallTopPadding = 2f;
-    [SerializeField] private float wallThickness = 1f;
-    [SerializeField] private Material wallMaterial;
 
     private readonly List<Platform> path = new List<Platform>(); //platforms the player climbs, in order
     private readonly List<Platform> obstacles = new List<Platform>(); //hand placed platforms that new ones must not overlap
-    private readonly GameObject[] boundaryWalls = new GameObject[4];
     private CharacterController playerController;
     private int currentIndex; //index in path of the platform the player most recently stood on
     private int orbitDirection = 1;
     private bool hasLoggedPlacementFailure;
-    private bool hasLoggedBranchFailure;
 
     private void Start()
     {
@@ -81,11 +75,10 @@ public class PlatformManager : MonoBehaviour
 
         playerController = player.GetComponent<CharacterController>();
         orbitDirection = Random.value < 0.5f ? -1 : 1;
+        path.Clear();
+        obstacles.Clear();
         StartPathFromExistingPlatforms();
 
-        //walls are children too, so create them after the existing platforms have been read
-        CreateBoundaryWalls();
-        UpdateBoundaryWalls(path[path.Count - 1].topCenter.y + wallTopPadding);
         SpawnPlatformsAhead();
     }
 
@@ -265,6 +258,36 @@ public class PlatformManager : MonoBehaviour
 
         if (bestScore == float.NegativeInfinity)
         {
+            // A random turn can trap the route near the bounds or among recent branches.
+            // Search the entire circle, then use a taller double-jump step to clear old geometry.
+            PlayerMovement movement = player.GetComponent<PlayerMovement>();
+            float safeRise = movement != null ? movement.MaximumDoubleJumpRise - 0.4f : doubleJumpRise.y;
+            float recoveryRise = Mathf.Min(verticalClearance + 0.05f, safeRise);
+            for (int pass = 0; pass < 2 && bestScore == float.NegativeInfinity; pass++)
+            {
+                float candidateRise = pass == 0 ? doubleJumpRise.y : recoveryRise;
+                if (candidateRise <= 0f) continue;
+                for (int angle = 0; angle < 72; angle++)
+                {
+                    float candidateHeading = preferredHeading + angle * 5f;
+                    Vector3 candidate = PositionAfterGap(previous, halfSize, candidateHeading, doubleJumpGap.x);
+                    candidate.y = previous.topCenter.y + candidateRise;
+                    float edgeDistance = DistanceToBoundsEdge(candidate, halfSize);
+                    if (edgeDistance < 0f) continue;
+                    float clearance = Mathf.Min(ClearanceFromOlderPlatforms(candidate, halfSize), 1000f);
+                    if (clearance < minClearance) continue;
+                    float candidateScore = clearance - Mathf.Abs(Mathf.DeltaAngle(preferredHeading, candidateHeading)) * 0.1f;
+                    if (candidateScore > bestScore)
+                    {
+                        bestScore = candidateScore;
+                        bestPosition = candidate;
+                    }
+                }
+            }
+        }
+
+        if (bestScore == float.NegativeInfinity)
+        {
             if (!hasLoggedPlacementFailure)
             {
                 Debug.LogError("PlatformManager could not find an in-bounds platform position with the configured spacing. Check the level bounds and platform dimensions.", this);
@@ -276,14 +299,12 @@ public class PlatformManager : MonoBehaviour
         hasLoggedPlacementFailure = false;
         Platform next = CreatePlatform(bestPosition, halfSize);
         path.Add(next);
-        UpdateBoundaryWalls(bestPosition.y + wallTopPadding);
 
         Vector3 direction = (bestPosition - previous.topCenter).normalized;
         Vector3 perpendicular = new Vector3(direction.z, 0f, -direction.x);
         Vector3 segmentCenter = (previous.topCenter + bestPosition) * 0.5f;
         Vector3 branchTowardCenter = new Vector3(levelBoundsCenter.x - segmentCenter.x, 0f, levelBoundsCenter.y - segmentCenter.z);
         int innerSide = Vector3.Dot(perpendicular, branchTowardCenter) >= 0f ? 1 : -1;
-        int spawnedBranches = 0;
         for (int branchIndex = 0; branchIndex < Mathf.Max(1, branchPlatformsPerStep); branchIndex++)
         {
             Vector3 bestBranchPosition = Vector3.zero;
@@ -327,13 +348,6 @@ public class PlatformManager : MonoBehaviour
             branch.gameObject.name = "Generated Branch Platform";
             previous.branchesToNext.Add(branch);
             obstacles.Add(branch);
-            spawnedBranches++;
-        }
-
-        if (spawnedBranches == 0 && !hasLoggedBranchFailure)
-        {
-            Debug.LogWarning("PlatformManager could not place a branch platform with the current spacing and level bounds.", this);
-            hasLoggedBranchFailure = true;
         }
     }
 
@@ -453,47 +467,6 @@ public class PlatformManager : MonoBehaviour
             halfSize = halfSize,
             generated = true,
         };
-    }
-
-    private void CreateBoundaryWalls()
-    {
-        for (int index = 0; index < boundaryWalls.Length; index++)
-        {
-            boundaryWalls[index] = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            boundaryWalls[index].name = "Level Boundary Wall";
-            boundaryWalls[index].transform.SetParent(transform, true);
-
-            Renderer wallRenderer = boundaryWalls[index].GetComponent<Renderer>();
-            Material material = wallMaterial != null ? wallMaterial : platformMaterial;
-            if (wallRenderer != null && material != null)
-            {
-                wallRenderer.sharedMaterial = material;
-            }
-        }
-    }
-
-    private void UpdateBoundaryWalls(float topHeight)
-    {
-        float thickness = Mathf.Max(0.1f, wallThickness);
-        float height = Mathf.Max(1f, topHeight - wallBaseHeight);
-        float centerHeight = wallBaseHeight + height * 0.5f;
-        float halfWidth = Mathf.Max(0.1f, levelBoundsSize.x * 0.5f);
-        float halfDepth = Mathf.Max(0.1f, levelBoundsSize.y * 0.5f);
-
-        SetBoundaryWall(0, new Vector3(levelBoundsCenter.x - halfWidth - thickness * 0.5f, centerHeight, levelBoundsCenter.y),
-            new Vector3(thickness, height, levelBoundsSize.y + thickness * 2f));
-        SetBoundaryWall(1, new Vector3(levelBoundsCenter.x + halfWidth + thickness * 0.5f, centerHeight, levelBoundsCenter.y),
-            new Vector3(thickness, height, levelBoundsSize.y + thickness * 2f));
-        SetBoundaryWall(2, new Vector3(levelBoundsCenter.x, centerHeight, levelBoundsCenter.y - halfDepth - thickness * 0.5f),
-            new Vector3(levelBoundsSize.x, height, thickness));
-        SetBoundaryWall(3, new Vector3(levelBoundsCenter.x, centerHeight, levelBoundsCenter.y + halfDepth + thickness * 0.5f),
-            new Vector3(levelBoundsSize.x, height, thickness));
-    }
-
-    private void SetBoundaryWall(int index, Vector3 position, Vector3 scale)
-    {
-        boundaryWalls[index].transform.position = position;
-        boundaryWalls[index].transform.localScale = scale;
     }
 
     private void OnDrawGizmosSelected()
