@@ -5,6 +5,9 @@ using System.Collections;
 public class Lava : MonoBehaviour
 {
     [SerializeField] private float riseSpeed = 0.5f;
+    [SerializeField, Min(0f)] private float catchUpDistance = 10f;
+    [SerializeField, Min(0f)] private float catchUpSpeedPerUnit = 0.5f;
+    [SerializeField, Min(0f)] private float maximumRiseSpeed = 8f;
     [SerializeField] private Transform player;
     [SerializeField] private float hearingRadius = 30f;
     [SerializeField] private AudioClip lavaAudioClip;
@@ -14,10 +17,12 @@ public class Lava : MonoBehaviour
 
     private AudioSource lavaAudioSource;
     private AudioSource deathAudioSource;
+    private Collider lavaCollider;
     private bool isReloading;
 
     private void Awake()
     {
+        lavaCollider = GetComponent<Collider>();
         lavaAudioSource = GetComponent<AudioSource>();
         if (lavaAudioSource == null)
         {
@@ -49,7 +54,19 @@ public class Lava : MonoBehaviour
 
     private void Update()
     {
-        transform.position += Vector3.up * riseSpeed * Time.deltaTime;
+        Vector3 position = transform.position;
+        if (player != null)
+        {
+            position.x = player.position.x;
+            position.z = player.position.z;
+        }
+
+        float lavaSurfaceHeight = lavaCollider != null ? lavaCollider.bounds.max.y : position.y;
+        float heightAboveLava = player != null ? Mathf.Max(0f, player.position.y - lavaSurfaceHeight) : 0f;
+        float catchUpSpeed = Mathf.Max(0f, heightAboveLava - catchUpDistance) * catchUpSpeedPerUnit;
+        float currentRiseSpeed = Mathf.Min(maximumRiseSpeed, riseSpeed + catchUpSpeed);
+        position.y += currentRiseSpeed * Time.deltaTime;
+        transform.position = position;
 
         lavaAudioSource.maxDistance = hearingRadius;
         lavaAudioSource.volume = audioVolume;

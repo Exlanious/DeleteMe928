@@ -4,8 +4,7 @@ using System.Collections.Generic;
 /// <summary>
 /// Generates an endless path of platforms that climbs upward. Every new platform is placed so it can be
 /// reached from the previous one with either a double jump (short gap, big rise) or a dash (long gap, small rise),
-/// and there are always at least platformsAhead platforms in front of the one the player is standing on.
-/// The path stays inside the level bounds, which are enclosed by walls that grow with the path.
+/// with alternate routes between each pair of main platforms, following the inside of the boundary walls.
 /// </summary>
 public class PlatformManager : MonoBehaviour
 {
@@ -15,6 +14,7 @@ public class PlatformManager : MonoBehaviour
         public Vector3 topCenter; //center of the platform's top surface
         public Vector2 halfSize; //half width on x and z
         public bool generated;
+        public readonly List<Platform> branchesToNext = new List<Platform>();
     }
 
     [SerializeField] private Transform player;
@@ -24,24 +24,24 @@ public class PlatformManager : MonoBehaviour
     [SerializeField] private float platformThickness = 0.5f;
 
     [Header("Spawning")]
-    [SerializeField, Min(5)] private int platformsAhead = 5; //platforms always kept in front of the one the player is standing on
+    [SerializeField, Min(5)] private int platformsAhead = 10; //main platforms kept in front of the one the player is standing on
     [SerializeField, Min(0)] private int platformsKeptBehind = 20; //older platforms past this count get destroyed
+    [SerializeField, Min(1)] private int branchPlatformsPerStep = 2;
 
-    //These limits are based on PlayerMovement's defaults (moveSpeed 5, jump 6, gravity 25, dash 25):
-    //a double jump reaches about 4.4 units high, a jump + dash covers about 9 units across, so these leave a safety margin.
+    //Keep the rise small and use wider edge gaps to make the route favor sideways movement.
     [Header("Double Jump Steps (x = min, y = max)")]
-    [SerializeField] private Vector2 doubleJumpGap = new Vector2(1f, 3f); //edge to edge distance
-    [SerializeField] private Vector2 doubleJumpRise = new Vector2(1.5f, 3f); //how much higher the next top is
+    [SerializeField] private Vector2 doubleJumpGap = new Vector2(2.5f, 4.5f); //edge to edge distance
+    [SerializeField] private Vector2 doubleJumpRise = new Vector2(0.5f, 1.25f); //how much higher the next top is
 
     [Header("Dash Steps (x = min, y = max)")]
     [SerializeField, Range(0f, 1f)] private float dashStepChance = 0.35f;
-    [SerializeField] private Vector2 dashGap = new Vector2(3.5f, 6f);
-    [SerializeField] private Vector2 dashRise = new Vector2(0.25f, 1.5f);
+    [SerializeField] private Vector2 dashGap = new Vector2(4f, 6.5f);
+    [SerializeField] private Vector2 dashRise = new Vector2(0.25f, 0.8f);
 
     [Header("Path Shape")]
     [SerializeField] private float maxTurnAngle = 60f; //how far the path can turn each step
     [SerializeField] private float verticalClearance = 4f; //platforms this close vertically must not overlap from above
-    [SerializeField] private float minClearance = 1f; //minimum horizontal space between a new platform and older ones
+    [SerializeField] private float minClearance = 2f; //minimum horizontal space between platforms at similar heights
     [SerializeField] private int placementAttempts = 16;
 
     [Header("Level Bounds")]
@@ -57,7 +57,9 @@ public class PlatformManager : MonoBehaviour
     private readonly GameObject[] boundaryWalls = new GameObject[4];
     private CharacterController playerController;
     private int currentIndex; //index in path of the platform the player most recently stood on
-    private float heading; //direction the path is traveling, in degrees around y
+    private int orbitDirection = 1;
+    private bool hasLoggedPlacementFailure;
+    private bool hasLoggedBranchFailure;
 
     private void Start()
     {
@@ -78,6 +80,7 @@ public class PlatformManager : MonoBehaviour
         }
 
         playerController = player.GetComponent<CharacterController>();
+        orbitDirection = Random.value < 0.5f ? -1 : 1;
         StartPathFromExistingPlatforms();
 
         //walls are children too, so create them after the existing platforms have been read
@@ -94,24 +97,18 @@ public class PlatformManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Start generating from the highest hand placed platform, heading away from the one before it
+    /// Start generating from the highest hand placed platform.
     /// </summary>
     private void StartPathFromExistingPlatforms()
     {
         Platform highest = null;
-        Platform secondHighest = null;
         for (int index = 0; index < transform.childCount; index++)
         {
             Platform existing = PlatformFromTransform(transform.GetChild(index));
             obstacles.Add(existing);
             if (highest == null || existing.topCenter.y > highest.topCenter.y)
             {
-                secondHighest = highest;
                 highest = existing;
-            }
-            else if (secondHighest == null || existing.topCenter.y > secondHighest.topCenter.y)
-            {
-                secondHighest = existing;
             }
         }
 
@@ -130,10 +127,6 @@ public class PlatformManager : MonoBehaviour
         }
         path.Add(highest);
         currentIndex = 0;
-
-        Vector3 startDirection = secondHighest != null ? highest.topCenter - secondHighest.topCenter : player.forward;
-        startDirection.y = 0;
-        heading = startDirection.sqrMagnitude > 0.001f ? Mathf.Atan2(startDirection.x, startDirection.z) * Mathf.Rad2Deg : 0f;
     }
 
     private Platform PlatformFromTransform(Transform platformTransform)
@@ -180,7 +173,12 @@ public class PlatformManager : MonoBehaviour
     {
         while (path.Count - 1 - currentIndex < platformsAhead)
         {
+            int previousCount = path.Count;
             SpawnNextPlatform();
+            if (path.Count == previousCount)
+            {
+                return;
+            }
         }
     }
 
@@ -193,14 +191,21 @@ public class PlatformManager : MonoBehaviour
             {
                 Destroy(oldest.gameObject);
             }
+            foreach (Platform branch in oldest.branchesToNext)
+            {
+                if (branch.gameObject != null)
+                {
+                    Destroy(branch.gameObject);
+                }
+                obstacles.Remove(branch);
+            }
             path.RemoveAt(0);
             currentIndex--;
         }
     }
 
     /// <summary>
-    /// Pick a double jump or dash step, then try a few directions until the new platform
-    /// stays inside the level bounds and doesn't crowd older ones
+    /// Pick a double jump or dash step, then try a few directions that leave room around older platforms.
     /// </summary>
     private void SpawnNextPlatform()
     {
@@ -214,7 +219,7 @@ public class PlatformManager : MonoBehaviour
         float rise = Random.Range(riseRange.x, riseRange.y);
 
         Vector3 bestPosition = Vector3.zero;
-        float bestHeading = heading;
+        float preferredHeading = PreferredHeadingAlongBounds(previous);
         float bestScore = float.NegativeInfinity;
         int attempts = Mathf.Max(1, placementAttempts);
         for (int attempt = 0; attempt <= attempts; attempt++)
@@ -222,38 +227,142 @@ public class PlatformManager : MonoBehaviour
             float candidateHeading;
             if (attempt < attempts)
             {
-                //widen the allowed turn on later attempts so the path can steer out of tight spots
+                //Widen the search around the route direction to find a clear in-bounds step.
                 float turnRange = Mathf.Min(180f, maxTurnAngle * (1f + 2f * attempt / attempts));
-                candidateHeading = heading + Random.Range(-turnRange, turnRange);
+                candidateHeading = preferredHeading + Random.Range(-turnRange, turnRange);
             }
             else
             {
-                //last resort: head straight for the middle of the level
-                Vector2 toCenter = levelBoundsCenter - new Vector2(previous.topCenter.x, previous.topCenter.z);
-                candidateHeading = toCenter.sqrMagnitude > 0.001f ? Mathf.Atan2(toCenter.x, toCenter.y) * Mathf.Rad2Deg : heading;
+                Vector2 towardCenter = levelBoundsCenter - new Vector2(previous.topCenter.x, previous.topCenter.z);
+                candidateHeading = towardCenter.sqrMagnitude > 0.001f
+                    ? Mathf.Atan2(towardCenter.x, towardCenter.y) * Mathf.Rad2Deg
+                    : preferredHeading;
             }
 
             Vector3 candidate = PositionAfterGap(previous, halfSize, candidateHeading, gap);
             candidate.y = previous.topCenter.y + rise;
 
-            //anything inside the bounds beats anything outside, then more clearance is better
-            float outside = DistanceOutsideBounds(candidate, halfSize);
-            float score = outside > 0f ? -1000f - outside : Mathf.Min(ClearanceFromOlderPlatforms(candidate, halfSize), 1000f);
+            float edgeDistance = DistanceToBoundsEdge(candidate, halfSize);
+            if (edgeDistance < 0f)
+            {
+                continue;
+            }
+
+            float clearance = Mathf.Min(ClearanceFromOlderPlatforms(candidate, halfSize), 1000f);
+            if (clearance < minClearance)
+            {
+                continue;
+            }
+
+            float turnFromPreferred = Mathf.Abs(Mathf.DeltaAngle(preferredHeading, candidateHeading));
+            float score = clearance - edgeDistance - turnFromPreferred * 0.1f;
             if (score > bestScore)
             {
                 bestScore = score;
                 bestPosition = candidate;
-                bestHeading = candidateHeading;
-            }
-            if (outside <= 0f && score >= minClearance)
-            {
-                break;
             }
         }
 
-        heading = bestHeading;
-        path.Add(CreatePlatform(bestPosition, halfSize));
+        if (bestScore == float.NegativeInfinity)
+        {
+            if (!hasLoggedPlacementFailure)
+            {
+                Debug.LogError("PlatformManager could not find an in-bounds platform position with the configured spacing. Check the level bounds and platform dimensions.", this);
+                hasLoggedPlacementFailure = true;
+            }
+            return;
+        }
+
+        hasLoggedPlacementFailure = false;
+        Platform next = CreatePlatform(bestPosition, halfSize);
+        path.Add(next);
         UpdateBoundaryWalls(bestPosition.y + wallTopPadding);
+
+        Vector3 direction = (bestPosition - previous.topCenter).normalized;
+        Vector3 perpendicular = new Vector3(direction.z, 0f, -direction.x);
+        Vector3 segmentCenter = (previous.topCenter + bestPosition) * 0.5f;
+        Vector3 branchTowardCenter = new Vector3(levelBoundsCenter.x - segmentCenter.x, 0f, levelBoundsCenter.y - segmentCenter.z);
+        int innerSide = Vector3.Dot(perpendicular, branchTowardCenter) >= 0f ? 1 : -1;
+        int spawnedBranches = 0;
+        for (int branchIndex = 0; branchIndex < Mathf.Max(1, branchPlatformsPerStep); branchIndex++)
+        {
+            Vector3 bestBranchPosition = Vector3.zero;
+            float bestBranchScore = float.NegativeInfinity;
+            int side = branchIndex % 2 == 0 ? innerSide : -innerSide;
+            for (int attempt = 0; attempt < attempts; attempt++)
+            {
+                float branchProgress = Random.Range(0.4f, 0.6f);
+                float branchOffset = Mathf.Max(platformDimensions.x, platformDimensions.y)
+                    + minClearance + Random.Range(0f, 1f);
+                Vector3 branchPosition = Vector3.Lerp(previous.topCenter, bestPosition, branchProgress)
+                    + perpendicular * side * branchOffset;
+                branchPosition.y = Mathf.Lerp(previous.topCenter.y, bestPosition.y, branchProgress);
+
+                if (DistanceToBoundsEdge(branchPosition, halfSize) < 0f)
+                {
+                    continue;
+                }
+
+                float clearance = Mathf.Min(ClearanceFromOlderPlatforms(branchPosition, halfSize),
+                    ClearanceFrom(next, branchPosition, halfSize));
+                if (clearance < minClearance)
+                {
+                    continue;
+                }
+
+                float score = clearance - Mathf.Abs(branchProgress - 0.5f);
+                if (score > bestBranchScore)
+                {
+                    bestBranchScore = score;
+                    bestBranchPosition = branchPosition;
+                }
+            }
+
+            if (bestBranchScore == float.NegativeInfinity)
+            {
+                continue;
+            }
+
+            Platform branch = CreatePlatform(bestBranchPosition, halfSize);
+            branch.gameObject.name = "Generated Branch Platform";
+            previous.branchesToNext.Add(branch);
+            obstacles.Add(branch);
+            spawnedBranches++;
+        }
+
+        if (spawnedBranches == 0 && !hasLoggedBranchFailure)
+        {
+            Debug.LogWarning("PlatformManager could not place a branch platform with the current spacing and level bounds.", this);
+            hasLoggedBranchFailure = true;
+        }
+    }
+
+    private float PreferredHeadingAlongBounds(Platform previous)
+    {
+        float halfWidth = Mathf.Max(0f, levelBoundsSize.x * 0.5f - previous.halfSize.x);
+        float halfDepth = Mathf.Max(0f, levelBoundsSize.y * 0.5f - previous.halfSize.y);
+        float offsetX = previous.topCenter.x - levelBoundsCenter.x;
+        float offsetZ = previous.topCenter.z - levelBoundsCenter.y;
+        float distanceToXEdge = halfWidth - Mathf.Abs(offsetX);
+        float distanceToZEdge = halfDepth - Mathf.Abs(offsetZ);
+        Vector3 direction;
+
+        if (Mathf.Min(distanceToXEdge, distanceToZEdge) > Mathf.Max(dashGap.y, doubleJumpGap.y) + 1f)
+        {
+            direction = distanceToXEdge <= distanceToZEdge
+                ? new Vector3(offsetX == 0f ? orbitDirection : Mathf.Sign(offsetX), 0f, 0f)
+                : new Vector3(0f, 0f, offsetZ == 0f ? orbitDirection : Mathf.Sign(offsetZ));
+        }
+        else if (distanceToXEdge <= distanceToZEdge)
+        {
+            direction = new Vector3(0f, 0f, orbitDirection * (offsetX >= 0f ? 1f : -1f));
+        }
+        else
+        {
+            direction = new Vector3(orbitDirection * (offsetZ >= 0f ? -1f : 1f), 0f, 0f);
+        }
+
+        return Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg;
     }
 
     /// <summary>
@@ -273,15 +382,15 @@ public class PlatformManager : MonoBehaviour
     }
 
     /// <summary>
-    /// How far the candidate platform pokes out past the level bounds (0 when fully inside)
+    /// Signed distance to the nearest edge of the level bounds (negative outside).
     /// </summary>
-    private float DistanceOutsideBounds(Vector3 candidate, Vector2 halfSize)
+    private float DistanceToBoundsEdge(Vector3 candidate, Vector2 halfSize)
     {
         float roomX = Mathf.Max(0f, levelBoundsSize.x * 0.5f - halfSize.x);
         float roomZ = Mathf.Max(0f, levelBoundsSize.y * 0.5f - halfSize.y);
-        float outsideX = Mathf.Max(0f, Mathf.Abs(candidate.x - levelBoundsCenter.x) - roomX);
-        float outsideZ = Mathf.Max(0f, Mathf.Abs(candidate.z - levelBoundsCenter.y) - roomZ);
-        return outsideX + outsideZ;
+        float distanceX = roomX - Mathf.Abs(candidate.x - levelBoundsCenter.x);
+        float distanceZ = roomZ - Mathf.Abs(candidate.z - levelBoundsCenter.y);
+        return Mathf.Min(distanceX, distanceZ);
     }
 
     /// <summary>
@@ -394,6 +503,11 @@ public class PlatformManager : MonoBehaviour
         for (int index = 1; index < path.Count; index++)
         {
             Gizmos.DrawLine(path[index - 1].topCenter, path[index].topCenter);
+            foreach (Platform branch in path[index - 1].branchesToNext)
+            {
+                Gizmos.DrawLine(path[index - 1].topCenter, branch.topCenter);
+                Gizmos.DrawLine(branch.topCenter, path[index].topCenter);
+            }
         }
     }
 }

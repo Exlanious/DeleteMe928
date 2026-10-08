@@ -55,6 +55,37 @@ public class PlayerMovement : MonoBehaviour
 
     public Vector3 DashVelocity => velocityDash; //current dash velocity (zero when not dashing)
     public float DashStartSpeed => dashSpeed; //how fast a dash starts, useful for effects that scale with the dash
+    public float DashCooldownRemaining => Mathf.Max(0f, dashCooldownTimer);
+    public float DashCooldownDuration => Mathf.Max(0f, dashCooldown);
+    public int AirDashesRemaining => airDashesRemaining;
+    public bool IsGrounded => isGrounded;
+    public Vector3 MomentumVelocity => velocity;
+
+    public Vector3 PredictMomentumPosition(float seconds)
+    {
+        float predictionTime = Mathf.Max(0f, seconds);
+        Vector3 predictedPosition = transform.position + velocity * predictionTime;
+        if (isGrounded && velocity.y <= 0f)
+        {
+            predictedPosition.y = transform.position.y;
+        }
+        else if (!dashing)
+        {
+            predictedPosition += Vector3.down * (0.5f * gravity * predictionTime * predictionTime);
+        }
+
+        float currentDashSpeed = velocityDash.magnitude;
+        if (currentDashSpeed > 0f && dashDeceleration > 0f)
+        {
+            float dashTime = Mathf.Min(predictionTime, currentDashSpeed / dashDeceleration);
+            float dashDistance = (currentDashSpeed + Mathf.Max(0f, currentDashSpeed - dashDeceleration * dashTime))
+                * 0.5f * dashTime;
+            float constantSpeedDistance = currentDashSpeed * predictionTime;
+            predictedPosition -= velocityDash.normalized * (constantSpeedDistance - dashDistance);
+        }
+
+        return predictedPosition;
+    }
 
 
 

@@ -16,6 +16,8 @@ GameObject:
   - component: {fileID: 3776234652260076536}
   - component: {fileID: 2058685660269960860}
   - component: {fileID: 4417203958106725331}
+  - component: {fileID: 7039472011948023456}
+  - component: {fileID: 812349056712304987}
   m_Layer: 0
   m_Name: FirstPersonController
   m_TagString: Untagged
@@ -443,3 +445,31 @@ Transform:
   - {fileID: 5357103715847353554}
   m_Father: {fileID: 9064379890283265927}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &7039472011948023456
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1821278238164118434}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e6a7c9d13f5840b18d2f0465cbd397a1, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerHUD
+--- !u!114 &812349056712304987
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1821278238164118434}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 128f94e12a0d4c75a126dcbe43e41a6c, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::MomentumIndicator
+  predictionTime: 0.45
+  minimumMomentum: 1
+  opacity: 0.6
+  indicatorTint: {r: 0.2, g: 0.9, b: 1, a: 1}
